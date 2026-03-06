@@ -18,7 +18,7 @@ interface FeedState {
 
 /**
  * Streams feeds from /api/feeds via NDJSON.
- * Items appear as each source resolves — no waiting for all 47.
+ * Items appear as each source resolves — no waiting for all sources.
  * On refresh, merges new items into existing list without disrupting the UI.
  * Re-fetches every 30s after the previous fetch completes.
  */
@@ -127,7 +127,7 @@ export function useFeedStream() {
       }, POLL_INTERVAL);
     };
 
-    fetchStream(true).then(schedule);
+    fetchStream(true).finally(schedule);
 
     return () => {
       abortRef.current?.abort();
@@ -166,8 +166,17 @@ function mergeItems(
   if (newItems.length === 0) return { merged: existing, addedIds };
 
   const merged = [...existing, ...newItems];
+  
+  // Cache timestamps to avoid creating Date objects during sort
+  const timestamps = new Map<string, number>();
+  for (const item of merged) {
+    if (!timestamps.has(item.id)) {
+      timestamps.set(item.id, new Date(item.pubDate).getTime());
+    }
+  }
+  
   merged.sort(
-    (a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime()
+    (a, b) => (timestamps.get(b.id) ?? 0) - (timestamps.get(a.id) ?? 0)
   );
   return { merged, addedIds };
 }

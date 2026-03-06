@@ -90,6 +90,7 @@ export function LiveFeed() {
 
   const [activeCategory, setActiveCategory] = useState<FeedCategory | "all">("all");
   const [activeSource, setActiveSource] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
 
   // Group items by source
@@ -126,15 +127,15 @@ export function LiveFeed() {
       if (prefs.hidden.has(item.source)) return false;
       if (activeCategory !== "all" && item.sourceCategory !== activeCategory) return false;
       if (activeSource && item.source !== activeSource) return false;
+      if (searchQuery) {
+        const lowerQuery = searchQuery.toLowerCase();
+        const matchesSource = item.source.toLowerCase().includes(lowerQuery);
+        const matchesTitle = item.title?.toLowerCase().includes(lowerQuery) ?? false;
+        if (!matchesSource && !matchesTitle) return false;
+      }
       return true;
     });
-    // Then: apply search + combined filters
-    const searched = applySearchFilters(preFiltered, filters);
-    // Then: apply standalone date picker filter
-    const dated = applyDateFilter(searched, dateRange);
-    // Then: apply tag filters
-    return filterByTags(dated);
-  }, [allItems, prefs.hidden, activeCategory, activeSource, filters, dateRange, filterByTags]);
+  }, [allItems, prefs.hidden, activeCategory, activeSource]);
 
   // When "More like this" is active, override with similar items
   const displayItems = isSimilarMode && similarItems ? similarItems : filteredItems;
@@ -295,6 +296,8 @@ export function LiveFeed() {
         filteredCount={filteredItems.length}
         onCategoryChange={handleCategoryChange}
         onSourceChange={handleSourceChange}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
       />
 
       <FeedContent
@@ -315,7 +318,7 @@ export function LiveFeed() {
 
       <footer className="hidden sm:flex shrink-0 px-4 py-1 border-t border-border/30 bg-secondary/10 items-center justify-between text-[9px] text-muted-foreground/40 uppercase tracking-widest">
         <span>Auto-refresh 30s</span>
-        <Link href="/changelog" className="hover:text-muted-foreground transition-colors">Changelog</Link>
+        <Link href="/changelog" className="hover:text-muted-foreground transition-colors" title="View changelog" aria-label="View LEB Monitor changelog and updates">Changelog</Link>
         <span>LEB Monitor v1.0</span>
       </footer>
     </div>

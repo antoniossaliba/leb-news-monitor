@@ -1,9 +1,39 @@
 "use client";
 
+<<<<<<< HEAD
 import { memo, useState, type ReactNode } from "react";
+=======
+import { memo, useState, useSyncExternalStore } from "react";
+>>>>>>> abd0f6acc2f927eadc26e141a701317e7cd803b4
 import type { FeedItem } from "@/app/api/feeds/route";
 import type { TagInfo } from "@/lib/entity-extractor";
 import { ArticleTags } from "./tag-browser";
+
+/** Shared minute-tick store — all FeedCards subscribe to a single interval */
+let tick = 0;
+const listeners = new Set<() => void>();
+let intervalId: ReturnType<typeof setInterval> | null = null;
+
+function subscribeTimeTick(cb: () => void) {
+  listeners.add(cb);
+  if (listeners.size === 1) {
+    intervalId = setInterval(() => {
+      tick++;
+      listeners.forEach((l) => l());
+    }, 60_000);
+  }
+  return () => {
+    listeners.delete(cb);
+    if (listeners.size === 0 && intervalId) {
+      clearInterval(intervalId);
+      intervalId = null;
+    }
+  };
+}
+
+function getTimeTick() {
+  return tick;
+}
 
 const RTL_REGEX = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
 
@@ -57,6 +87,7 @@ export const FeedCard = memo(function FeedCard({
   tagIndex?: Map<string, TagInfo>;
   onTagClick?: (tag: string) => void;
 }) {
+  useSyncExternalStore(subscribeTimeTick, getTimeTick, getTimeTick);
   const rtl = isRtl(item.title);
   const [imgError, setImgError] = useState(false);
   const showImage = item.image && !imgError;
@@ -65,8 +96,10 @@ export const FeedCard = memo(function FeedCard({
     <a
       href={item.link}
       target="_blank"
-      rel="noopener noreferrer"
-      className={`block group ${isNew ? "card-enter" : ""}`}
+      rel="noopener noreferrer ugc"
+      className={`block group${isNew ? " card-enter" : ""}`}
+      title={`Read: ${item.title} - from ${item.source}`}
+      aria-label={`Read full article: ${item.title} on ${item.source}`}
     >
       <article className="relative h-full rounded-lg border border-border/40 bg-card/50 active:bg-accent/50 hover:bg-accent/40 hover:border-border/60 transition-colors duration-150 overflow-hidden">
         {/* Accent bar (left edge) */}
@@ -122,7 +155,8 @@ export const FeedCard = memo(function FeedCard({
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={item.image}
-                  alt=""
+                  alt={item.title}
+                  loading="lazy"
                   className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
                   onError={() => setImgError(true)}
                 />
